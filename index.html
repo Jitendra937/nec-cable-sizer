@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEC Cable Sizing Calculator | Article 310 Compliant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0f172a; color: #e2e8f0; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(148, 163, 184, 0.1); }
+        .input-field { 
+            background: rgba(15, 23, 42, 0.8); 
+            border: 1px solid rgba(71, 85, 105, 0.5); 
+            color: #f8fafc;
+            transition: all 0.2s;
+        }
+        .input-field:focus { 
+            border-color: #3b82f6; 
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            outline: none;
+        }
+        .result-card { 
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+            border-left: 4px solid #3b82f6;
+        }
+        .warning { border-left-color: #f59e0b; }
+        .danger { border-left-color: #ef4444; }
+        .success { border-left-color: #10b981; }
+        .tab-active { background: #3b82f6; color: white; }
+        .tab-inactive { background: rgba(30, 41, 59, 0.5); color: #94a3b8; }
+        .tab-inactive:hover { background: rgba(51, 65, 85, 0.8); color: #e2e8f0; }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .nec-ref { 
+            font-size: 0.75rem; 
+            color: #64748b; 
+            font-style: italic;
+            display: inline-block;
+            margin-left: 0.5rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-50 glass border-b border-slate-700/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-white tracking-tight">NEC Cable Sizing Calculator</h1>
+                        <p class="text-xs text-slate-400">Article 310.16 • Ampacity & Derating Compliant</p>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center space-x-4 text-sm text-slate-400">
+                    <span class="flex items-center"><span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>2023 NEC</span>
+                    <span class="flex items-center"><span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>NFPA 70</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Mode Tabs -->
+        <div class="flex space-x-1 mb-6 bg-slate-800/50 p-1 rounded-xl inline-flex">
+            <button onclick="switchMode('ampacity')" id="tab-ampacity" class="tab-active px-6 py-2 rounded-lg text-sm font-medium transition-all duration-200">Ampacity Check</button>
+            <button onclick="switchMode('sizing')" id="tab-sizing" class="tab-inactive px-6 py-2 rounded-lg text-sm font-medium transition-all duration-200">Size by Load</button>
+            <button onclick="switchMode('motor')" id="tab-motor" class="tab-inactive px-6 py-2 rounded-lg text-sm font-medium transition-all duration-200">Motor Circuit</button>
+            <button onclick="switchMode('voltage-drop')" id="tab-voltage-drop" class="tab-inactive px-6 py-2 rounded-lg text-sm font-medium transition-all duration-200">Voltage Drop</button>
+        </div>
+
+        <div class="grid lg:grid-cols-12 gap-6">
+            
+            <!-- Left Panel: Inputs -->
+            <div class="lg:col-span-5 space-y-6">
+                
+                <!-- Common Parameters -->
+                <div class="glass rounded-2xl p-6 space-y-4">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                        </svg>
+                        Conductor Parameters
+                    </h2>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-1">Material <span class="nec-ref">310.16</span></label>
+                            <select id="material" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="calculate()">
+                                <option value="copper">Copper</option>
+                                <option value="aluminum">Aluminum</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-1">Insulation Temp <span class="nec-ref">310.104(A)</span></label>
+                            <select id="insulation" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="calculate()">
+                                <option value="60">60°C (TW)</option>
+                                <option value="75" selected>75°C (THW, THWN, RHW)</option>
+                                <option value="90">90°C (THHN, XHHW, USE-2)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Conductor Size (AWG/kcmil)</label>
+                        <select id="wireSize" class="input-field w-full rounded-lg px-3 py-2 text-sm mono" onchange="calculate()">
+                            <option value="14">14 AWG</option>
+                            <option value="12">12 AWG</option>
+                            <option value="10">10 AWG</option>
+                            <option value="8">8 AWG</option>
+                            <option value="6">6 AWG</option>
+                            <option value="4">4 AWG</option>
+                            <option value="3">3 AWG</option>
+                            <option value="2">2 AWG</option>
+                            <option value="1">1 AWG</option>
+                            <option value="1/0">1/0 AWG</option>
+                            <option value="2/0">2/0 AWG</option>
+                            <option value="3/0">3/0 AWG</option>
+                            <option value="4/0">4/0 AWG</option>
+                            <option value="250">250 kcmil</option>
+                            <option value="300">300 kcmil</option>
+                            <option value="350">350 kcmil</option>
+                            <option value="400">400 kcmil</option>
+                            <option value="500">500 kcmil</option>
+                            <option value="600">600 kcmil</option>
+                            <option value="750">750 kcmil</option>
+                            <option value="1000">1000 kcmil</option>
+                        </select>
+                    </div>
+
+                    <div class="border-t border-slate-700/50 pt-4">
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Ambient Temperature <span class="nec-ref">310.15(B)(2)</span></label>
+                        <div class="flex items-center space-x-2">
+                            <input type="range" id="ambientTemp" min="26" max="55" value="30" class="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer" oninput="updateTempDisplay(); calculate()">
+                            <span id="tempDisplay" class="mono text-sm font-semibold text-blue-400 w-16 text-right">30°C</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">Base: 30°C (86°F). Derating required above 30°C.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Current-Carrying Conductors <span class="nec-ref">310.15(C)(1)</span></label>
+                        <select id="numConductors" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="calculate()">
+                            <option value="1">1-3 conductors (No derating)</option>
+                            <option value="0.8">4-6 conductors (80%)</option>
+                            <option value="0.7">7-9 conductors (70%)</option>
+                            <option value="0.5">10-20 conductors (50%)</option>
+                            <option value="0.45">21-30 conductors (45%)</option>
+                            <option value="0.4">31-40 conductors (40%)</option>
+                            <option value="0.35">41+ conductors (35%)</option>
+                        </select>
+                        <p class="text-xs text-slate-500 mt-1">Count hots & neutrals carrying current. Exclude ground.</p>
+                    </div>
+                </div>
+
+                <!-- Load Specific Inputs (shown based on mode) -->
+                <div id="load-inputs" class="glass rounded-2xl p-6 space-y-4 hidden">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        Load Parameters
+                    </h2>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-1">Load Current (A)</label>
+                            <input type="number" id="loadCurrent" class="input-field w-full rounded-lg px-3 py-2 text-sm mono" placeholder="0" oninput="calculate()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-1">Load Type <span class="nec-ref">210.19(A)</span></label>
+                            <select id="loadType" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="calculate()">
+                                <option value="1">Non-Continuous (<3 hrs)</option>
+                                <option value="1.25">Continuous (≥3 hrs) - 125%</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Motor Inputs -->
+                <div id="motor-inputs" class="glass rounded-2xl p-6 space-y-4 hidden">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Motor Specifications <span class="nec-ref">Art. 430</span>
+                    </h2>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-1">Motor HP</label>
+                            <select id="motorHP" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="calculate()">
+                                <option value="0.5">1/2 HP</option>
+                                <option value="0.75">3/4 HP</option>
+                                <option value="1">1 HP</option>
+                                <option value="1.5">1-1/2 HP</option>
+                                <option value="2">2 HP</option>
+                                <option value="3">3 HP</option>
+                                <option value="5">5 HP</option>
+                                <option value="7.5">7-1/2 HP</option>
+                                <option value="10">10 HP</option>
+                                <option value="15">15 HP</option>
+                                <option value="20">20 HP</option>
+                                <option value="25">25 HP</option>
+                                <option value="30">30 HP</option>
+                                <option value="40">40 HP</option>
+                                <option value="50">50 HP</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-1">Voltage</label>
+                            <select id="motorVoltage" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="calculate()">
+                                <option value="115">115V (Single Phase)</option>
+                                <option value="230" selected>230V (Single Phase)</option>
+                                <option value="200">200V (Three Phase)</option>
+                                <option value="230">230V (Three Phase)</option>
+                                <option value="460">460V (Three Phase)</option>
+                                <option value="575">575V (Three Phase)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Motor Type <span class="nec-ref">430.22</span></label>
+                        <select id="motorType" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="calculate()">
+                            <option value="1.25">Standard Motor (125% of FLC)</option>
+                            <option value="1.15">Wound-Rotor (115% of FLC)</option>
+                            <option value="1.0">DC Motor (100% of FLC)</option>
+                            <option value="1.0">Fire Pump (100% of FLC)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Voltage Drop Inputs -->
+                <div id="voltage-drop-inputs" class="glass rounded-2xl p-6 space-y-4 hidden">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                        Circuit Length <span class="nec-ref">210.19(A) FPN</span>
+                    </h2>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">One-Way Distance (ft)</label>
+                        <input type="number" id="circuitLength" class="input-field w-full rounded-lg px-3 py-2 text-sm mono" placeholder="100" oninput="calculate()">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">System Voltage</label>
+                        <select id="systemVoltage" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="calculate()">
+                            <option value="120">120V Single Phase</option>
+                            <option value="208">208V Three Phase</option>
+                            <option value="240" selected>240V Single Phase</option>
+                            <option value="277">277V Single Phase</option>
+                            <option value="480">480V Three Phase</option>
+                        </select>
+                    </div>
+
+                    <div class="bg-slate-800/50 rounded-lg p-3 text-xs text-slate-400 border border-slate-700">
+                        <strong class="text-slate-300">NEC Limits:</strong> Max 3% drop on branch circuits, 5% total (feeder + branch).
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Panel: Results -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- Main Result Card -->
+                <div id="result-card" class="result-card glass rounded-2xl p-6 animate-fade-in">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-white">Calculation Results</h2>
+                        <span id="compliance-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">
+                            COMPLIANT
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">Base Ampacity</p>
+                            <p id="base-ampacity" class="text-2xl font-bold text-white mono">--</p>
+                            <p class="text-xs text-slate-500 mt-1">Table 310.16</p>
+                        </div>
+                        <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">Temp Factor</p>
+                            <p id="temp-factor" class="text-2xl font-bold text-blue-400 mono">--</p>
+                            <p class="text-xs text-slate-500 mt-1">Table 310.15(B)(2)</p>
+                        </div>
+                        <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">Bundle Factor</p>
+                            <p id="bundle-factor" class="text-2xl font-bold text-purple-400 mono">--</p>
+                            <p class="text-xs text-slate-500 mt-1">Table 310.15(C)(1)</p>
+                        </div>
+                        <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">Final Ampacity</p>
+                            <p id="final-ampacity" class="text-2xl font-bold text-green-400 mono">--</p>
+                            <p class="text-xs text-slate-500 mt-1">Adjusted</p>
+                        </div>
+                    </div>
+
+                    <div id="sizing-result" class="hidden space-y-4">
+                        <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="text-sm text-slate-400">Required Ampacity (with 125% if continuous)</p>
+                                    <p id="required-ampacity" class="text-3xl font-bold text-white mono mt-1">--</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm text-slate-400">Recommended Breaker</p>
+                                    <p id="breaker-size" class="text-3xl font-bold text-amber-400 mono mt-1">--</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="voltage-drop-result" class="hidden space-y-4">
+                        <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="text-sm text-slate-400">Voltage Drop</p>
+                                    <p id="voltage-drop-val" class="text-3xl font-bold text-white mono mt-1">--</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm text-slate-400">% Drop</p>
+                                    <p id="voltage-drop-pct" class="text-3xl font-bold text-amber-400 mono mt-1">--</p>
+                                </div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-slate-700">
+                                <p id="voltage-drop-status" class="text-sm font-medium">--</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Warnings -->
+                    <div id="warnings" class="mt-4 space-y-2 hidden">
+                        <!-- Dynamic warnings inserted here -->
+                    </div>
+                </div>
+
+                <!-- Detailed Breakdown -->
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-white mb-4">NEC Reference Tables</h3>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-slate-400 uppercase bg-slate-800/50">
+                                <tr>
+                                    <th class="px-4 py-3 rounded-l-lg">Size</th>
+                                    <th class="px-4 py-3">60°C</th>
+                                    <th class="px-4 py-3">75°C</th>
+                                    <th class="px-4 py-3">90°C</th>
+                                    <th class="px-4 py-3 rounded-r-lg">Max OCPD</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ampacity-table" class="divide-y divide-slate-700/50 text-slate-300 mono">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4 grid md:grid-cols-2 gap-4 text-xs text-slate-400">
+                        <div class="bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
+                            <strong class="text-slate-300">Temperature Correction (310.15(B)(2)):</strong><br>
+                            31-35°C: ×0.91 (60°), ×0.94 (75°), ×0.96 (90°)<br>
+                            36-40°C: ×0.82 (60°), ×0.88 (75°), ×0.91 (90°)<br>
+                            41-45°C: ×0.71 (60°), ×0.82 (75°), ×0.87 (90°)
+                        </div>
+                        <div class="bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
+                            <strong class="text-slate-300">Bundling Adjustment (310.15(C)(1)):</strong><br>
+                            4-6 cond: 80% | 7-9: 70% | 10-20: 50%<br>
+                            21-30: 45% | 31-40: 40% | 41+: 35%<br>
+                            <em>Exclude equipment grounding conductors</em>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Code References -->
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-white mb-3">Applicable NEC Articles</h3>
+                    <div class="grid md:grid-cols-2 gap-3 text-sm">
+                        <div class="flex items-start space-x-2">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                            <div>
+                                <strong class="text-slate-300">Article 310.15:</strong>
+                                <p class="text-slate-400 text-xs">Ampacities for conductors rated 0-2000 volts</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-2">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                            <div>
+                                <strong class="text-slate-300">Article 310.16:</strong>
+                                <p class="text-slate-400 text-xs">Allowable ampacities in raceway, cable, or earth</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-2">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                            <div>
+                                <strong class="text-slate-300">Article 110.14(C):</strong>
+                                <p class="text-slate-400 text-xs">Temperature limitations at terminals (typically 75°C)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-2">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                            <div>
+                                <strong class="text-slate-300">Article 210.19(A):</strong>
+                                <p class="text-slate-400 text-xs">Branch circuit conductors must have ampacity ≥125% of continuous load</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-2">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                            <div>
+                                <strong class="text-slate-300">Article 240.4:</strong>
+                                <p class="text-slate-400 text-xs">Protection of conductors (OCPD rating ≤ conductor ampacity)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-2">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                            <div>
+                                <strong class="text-slate-300">Article 430.22:</strong>
+                                <p class="text-slate-400 text-xs">Single motor circuit conductors (125% of motor FLC)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // NEC Table 310.16 Data (Ampacities in Amperes)
+        const ampacityData = {
+            copper: {
+                60: {14: 20, 12: 25, 10: 30, 8: 40, 6: 55, 4: 70, 3: 85, 2: 95, 1: 110, '1/0': 125, '2/0': 145, '3/0': 165, '4/0': 195, 250: 215, 300: 240, 350: 260, 400: 280, 500: 320, 600: 355, 750: 400, 1000: 455},
+                75: {14: 20, 12: 25, 10: 35, 8: 50, 6: 65, 4: 85, 3: 100, 2: 115, 1: 130, '1/0': 150, '2/0': 175, '3/0': 200, '4/0': 230, 250: 255, 300: 285, 350: 310, 400: 335, 500: 380, 600: 420, 750: 475, 1000: 545},
+                90: {14: 25, 12: 30, 10: 40, 8: 55, 6: 75, 4: 95, 3: 115, 2: 130, 1: 150, '1/0': 170, '2/0': 195, '3/0': 225, '4/0': 260, 250: 290, 300: 320, 350: 350, 400: 380, 500: 430, 600: 475, 750: 535, 1000: 615}
+            },
+            aluminum: {
+                60: {12: 20, 10: 25, 8: 35, 6: 40, 4: 55, 3: 65, 2: 75, 1: 85, '1/0': 100, '2/0': 115, '3/0': 130, '4/0': 150, 250: 170, 300: 190, 350: 210, 400: 225, 500: 260, 600: 285, 750: 320, 1000: 375},
+                75: {12: 20, 10: 30, 8: 40, 6: 50, 4: 65, 3: 75, 2: 90, 1: 100, '1/0': 120, '2/0': 135, '3/0': 155, '4/0': 180, 250: 205, 300: 230, 350: 250, 400: 270, 500: 310, 600: 340, 750: 385, 1000: 445},
+                90: {12: 25, 10: 35, 8: 45, 6: 60, 4: 75, 3: 90, 2: 100, 1: 115, '1/0': 135, '2/0': 150, '3/0': 175, '4/0': 205, 250: 235, 300: 260, 350: 280, 400: 305, 500: 350, 600: 385, 750: 435, 1000: 500}
+            }
+        };
+
+        // Motor FLC Tables (simplified - 230V Single Phase and 460V Three Phase)
+        const motorFLC = {
+            115: {0.5: 9.8, 0.75: 13.8, 1: 16, 1.5: 20, 2: 24, 3: 34, 5: 56, 7.5: 80, 10: 100},
+            230: {0.5: 4.9, 0.75: 6.9, 1: 8, 1.5: 10, 2: 12, 3: 17, 5: 28, 7.5: 40, 10: 50, 15: 68, 20: 88, 25: 110, 30: 136, 40: 176, 50: 216},
+            200: {0.5: 2.5, 0.75: 3.5, 1: 4.4, 1.5: 6.4, 2: 7.6, 3: 10.6, 5: 16.7, 7.5: 24.2, 10: 30.8, 15: 46.2, 20: 59.4, 25: 74.8, 30: 88, 40: 114, 50: 143},
+            460: {0.5: 1.1, 0.75: 1.6, 1: 2.1, 1.5: 3.0, 2: 3.4, 3: 4.8, 5: 7.6, 7.5: 11, 10: 14, 15: 21, 20: 27, 25: 34, 30: 40, 40: 52, 50: 65, 60: 77, 75: 96, 100: 124},
+            575: {0.5: 0.9, 0.75: 1.3, 1: 1.7, 1.5: 2.4, 2: 2.7, 3: 3.9, 5: 6.1, 7.5: 9, 10: 11, 15: 17, 20: 22, 25: 27, 30: 32, 40: 41, 50: 52, 60: 62, 75: 77, 100: 99}
+        };
+
+        // Resistance values for voltage drop (ohms per 1000 ft)
+        const wireResistance = {
+            14: 3.07, 12: 1.93, 10: 1.21, 8: 0.764, 6: 0.491, 4: 0.308, 3: 0.245, 2: 0.194, 
+            1: 0.154, '1/0': 0.122, '2/0': 0.096, '3/0': 0.077, '4/0': 0.062, 
+            250: 0.052, 300: 0.044, 350: 0.038, 400: 0.033, 500: 0.027, 
+            600: 0.023, 750: 0.019, 1000: 0.015
+        };
+
+        let currentMode = 'ampacity';
+
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            // Update tabs
+            ['ampacity', 'sizing', 'motor', 'voltage-drop'].forEach(m => {
+                const tab = document.getElementById(`tab-${m}`);
+                if (m === mode) {
+                    tab.className = 'tab-active px-6 py-2 rounded-lg text-sm font-medium transition-all duration-200';
+                } else {
+                    tab.className = 'tab-inactive px-6 py-2 rounded-lg text-sm font-medium transition-all duration-200';
+                }
+            });
+
+            // Show/hide inputs
+            document.getElementById('load-inputs').classList.toggle('hidden', mode !== 'sizing');
+            document.getElementById('motor-inputs').classList.toggle('hidden', mode !== 'motor');
+            document.getElementById('voltage-drop-inputs').classList.toggle('hidden', mode !== 'voltage-drop');
+            
+            // Show/hide results
+            document.getElementById('sizing-result').classList.toggle('hidden', mode !== 'sizing' && mode !== 'motor');
+            document.getElementById('voltage-drop-result').classList.toggle('hidden', mode !== 'voltage-drop');
+            
+            calculate();
+        }
+
+        function updateTempDisplay() {
+            document.getElementById('tempDisplay').textContent = document.getElementById('ambientTemp').value + '°C';
+        }
+
+        function getTempFactor(temp, insulation) {
+            // NEC Table 310.15(B)(2) - Correction Factors
+            const factors = {
+                60: {30: 1.0, 35: 0.91, 40: 0.82, 45: 0.71, 50: 0.58, 55: 0.41},
+                75: {30: 1.0, 35: 0.94, 40: 0.88, 45: 0.82, 50: 0.75, 55: 0.67},
+                90: {30: 1.0, 35: 0.96, 40: 0.91, 45: 0.87, 50: 0.82, 55: 0.76}
+            };
+            
+            const tempRanges = [30, 35, 40, 45, 50, 55];
+            let closest = tempRanges[0];
+            for (let t of tempRanges) {
+                if (Math.abs(temp - t) < Math.abs(temp - closest)) closest = t;
+            }
+            
+            return factors[insulation][closest] || 1.0;
+        }
+
+        function calculate() {
+            const material = document.getElementById('material').value;
+            const insulation = document.getElementById('insulation').value;
+            const size = document.getElementById('wireSize').value;
+            const ambient = parseInt(document.getElementById('ambientTemp').value);
+            const bundleFactor = parseFloat(document.getElementById('numConductors').value);
+            
+            // Get base ampacity
+            let baseAmp = ampacityData[material][insulation][size];
+            if (!baseAmp) {
+                // Handle sizes not in table for that temp rating
+                baseAmp = ampacityData[material][75][size] || ampacityData[material][60][size];
+            }
+            
+            // Apply temperature correction
+            const tempFactor = getTempFactor(ambient, insulation);
+            const adjustedAmp = baseAmp * tempFactor * bundleFactor;
+            
+            // Update display
+            document.getElementById('base-ampacity').textContent = baseAmp + 'A';
+            document.getElementById('temp-factor').textContent = tempFactor.toFixed(2);
+            document.getElementById('bundle-factor').textContent = (bundleFactor * 100).toFixed(0) + '%';
+            document.getElementById('final-ampacity').textContent = adjustedAmp.toFixed(1) + 'A';
+            
+            // Warnings
+            const warnings = [];
+            
+            // Terminal temperature warning
+            if (insulation === '90') {
+                warnings.push({
+                    type: 'warning',
+                    text: '90°C insulation used, but terminals limited to 75°C per 110.14(C). Use 75°C column for final ampacity unless terminals rated 90°C.'
+                });
+            }
+            
+            // Small conductor warning
+            if (material === 'aluminum' && (size === '14' || size === '12' || size === '10')) {
+                if (size === '14') {
+                    warnings.push({
+                        type: 'danger',
+                        text: '14 AWG aluminum NOT permitted for branch circuits per 310.106(B). Minimum 12 AWG for 15A, 10 AWG for 20A.'
+                    });
+                }
+            }
+            
+            // Overcurrent protection limits (240.4(D))
+            const ocpdLimits = {14: 15, 12: 20, 10: 30};
+            if (ocpdLimits[size] && adjustedAmp > ocpdLimits[size]) {
+                warnings.push({
+                    type: 'warning',
+                    text: `${size} AWG maximum OCPD is ${ocpdLimits[size]}A per 240.4(D). Actual ampacity ${adjustedAmp.toFixed(1)}A exceeds this limit.`
+                });
+            }
+            
+            // Mode specific calculations
+            if (currentMode === 'sizing') {
+                calculateSizing(adjustedAmp);
+            } else if (currentMode === 'motor') {
+                calculateMotor(adjustedAmp);
+            } else if (currentMode === 'voltage-drop') {
+                calculateVoltageDrop(material, size);
+            }
+            
+            // Update warnings
+            const warningsDiv = document.getElementById('warnings');
+            warningsDiv.innerHTML = '';
+            if (warnings.length > 0) {
+                warningsDiv.classList.remove('hidden');
+                warnings.forEach(w => {
+                    const div = document.createElement('div');
+                    div.className = `p-3 rounded-lg border text-sm ${w.type === 'danger' ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-400'}`;
+                    div.innerHTML = `<strong>${w.type === 'danger' ? 'ERROR:' : 'NOTE:'}</strong> ${w.text}`;
+                    warningsDiv.appendChild(div);
+                });
+            } else {
+                warningsDiv.classList.add('hidden');
+            }
+            
+            // Update compliance badge
+            const badge = document.getElementById('compliance-badge');
+            if (warnings.some(w => w.type === 'danger')) {
+                badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30';
+                badge.textContent = 'NON-COMPLIANT';
+            } else if (warnings.length > 0) {
+                badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30';
+                badge.textContent = 'REVIEW REQUIRED';
+            } else {
+                badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30';
+                badge.textContent = 'COMPLIANT';
+            }
+            
+            updateAmpacityTable(material);
+        }
+
+        function calculateSizing(adjustedAmp) {
+            const loadCurrent = parseFloat(document.getElementById('loadCurrent').value) || 0;
+            const loadFactor = parseFloat(document.getElementById('loadType').value);
+            
+            if (loadCurrent > 0) {
+                const requiredAmp = loadCurrent * loadFactor;
+                document.getElementById('required-ampacity').textContent = requiredAmp.toFixed(1) + 'A';
+                
+                // Standard breaker sizes (240.6)
+                const standardSizes = [15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 110, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500, 600, 800, 1000, 1200, 1600, 2000, 2500, 3000, 4000, 5000, 6000];
+                let breaker = standardSizes.find(s => s >= requiredAmp) || 'Custom';
+                document.getElementById('breaker-size').textContent = breaker + 'A';
+                
+                // Check if selected wire is adequate
+                if (adjustedAmp < requiredAmp) {
+                    document.getElementById('result-card').classList.remove('success');
+                    document.getElementById('result-card').classList.add('danger');
+                } else {
+                    document.getElementById('result-card').classList.remove('danger');
+                    document.getElementById('result-card').classList.add('success');
+                }
+            }
+        }
+
+        function calculateMotor(adjustedAmp) {
+            const hp = document.getElementById('motorHP').value;
+            const voltage = document.getElementById('motorVoltage').value;
+            const factor = parseFloat(document.getElementById('motorType').value);
+            
+            const flc = motorFLC[voltage]?.[hp] || motorFLC[230][hp] || 0;
+            const requiredAmp = flc * factor;
+            
+            document.getElementById('required-ampacity').textContent = requiredAmp.toFixed(1) + 'A (FLC: ' + flc + 'A × ' + (factor * 100) + '%)';
+            
+            const standardSizes = [15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 110, 125, 150, 175, 200, 225, 250, 300, 350, 400];
+            let breaker = standardSizes.find(s => s >= requiredAmp * 1.15) || 'Custom'; // 430.52 allows up to 250% for inverse time breakers
+            document.getElementById('breaker-size').textContent = breaker + 'A (Max)';
+            
+            if (adjustedAmp < requiredAmp) {
+                document.getElementById('result-card').classList.add('danger');
+            } else {
+                document.getElementById('result-card').classList.remove('danger');
+            }
+        }
+
+        function calculateVoltageDrop(material, size) {
+            const length = parseFloat(document.getElementById('circuitLength').value) || 0;
+            const voltage = parseInt(document.getElementById('systemVoltage').value);
+            const current = parseFloat(document.getElementById('loadCurrent').value) || parseFloat(document.getElementById('final-ampacity').textContent) || 20;
+            
+            if (length > 0) {
+                const R = wireResistance[size] * (material === 'aluminum' ? 1.61 : 1); // Aluminum has 1.61x resistance of copper
+                const isThreePhase = [208, 460, 575].includes(voltage);
+                
+                let vd;
+                if (isThreePhase) {
+                    vd = 1.732 * current * (R / 1000) * length;
+                } else {
+                    vd = 2 * current * (R / 1000) * length;
+                }
+                
+                const vdPercent = (vd / voltage) * 100;
+                
+                document.getElementById('voltage-drop-val').textContent = vd.toFixed(2) + 'V';
+                document.getElementById('voltage-drop-pct').textContent = vdPercent.toFixed(2) + '%';
+                
+                const status = document.getElementById('voltage-drop-status');
+                if (vdPercent > 5) {
+                    status.className = 'text-sm font-medium text-red-400';
+                    status.textContent = 'EXCEEDS NEC 5% total limit. Consider larger conductor or shorter run.';
+                } else if (vdPercent > 3) {
+                    status.className = 'text-sm font-medium text-amber-400';
+                    status.textContent = 'Exceeds 3% branch circuit limit but within 5% total. Check feeder drop.';
+                } else {
+                    status.className = 'text-sm font-medium text-green-400';
+                    status.textContent = 'Within NEC recommended limits (≤3% branch, ≤5% total).';
+                }
+            }
+        }
+
+        function updateAmpacityTable(material) {
+            const tbody = document.getElementById('ampacity-table');
+            tbody.innerHTML = '';
+            
+            const sizes = ['14', '12', '10', '8', '6', '4', '2', '1/0', '2/0', '4/0', '250', '300', '500', '750', '1000'];
+            const ocpdLimits = {14: 15, 12: 20, 10: 30, 8: 40, 6: 60, 4: 70, 2: 100, '1/0': 125, '2/0': 150, '4/0': 200};
+            
+            sizes.forEach(size => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-800/50 transition-colors';
+                
+                const amp60 = ampacityData[material][60][size] || '-';
+                const amp75 = ampacityData[material][75][size] || '-';
+                const amp90 = ampacityData[material][90][size] || '-';
+                const maxOcpd = ocpdLimits[size] || (amp75 !== '-' ? Math.ceil(amp75 / 5) * 5 : '-');
+                
+                row.innerHTML = `
+                    <td class="px-4 py-3 font-medium text-white">${size} ${size.includes('/') || parseInt(size) > 4 ? 'AWG' : 'AWG'}</td>
+                    <td class="px-4 py-3 ${amp60 !== '-' ? 'text-slate-300' : 'text-slate-600'}">${amp60}</td>
+                    <td class="px-4 py-3 ${amp75 !== '-' ? 'text-blue-400 font-semibold' : 'text-slate-600'}">${amp75}</td>
+                    <td class="px-4 py-3 ${amp90 !== '-' ? 'text-green-400' : 'text-slate-600'}">${amp90}</td>
+                    <td class="px-4 py-3 text-amber-400">${maxOcpd}A</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Initialize
+        calculate();
+    </script>
+</body>
+</html>
